@@ -1,0 +1,32 @@
+syntax = "proto3";
+package productos;
+
+option java_multiple_files = false;
+option java_package = "poli.edu.arqweb.arqweb.proto";
+option java_outer_classname = "ProductoProto";
+
+import "google/protobuf/empty.proto";
+
+message Producto {
+  string id = 1;
+  string nombre = 2;
+  string descripcion = 3;
+  double precio = 4;
+  int32 cantidad = 5;
+}
+
+message ProductoId {
+  string id = 1;
+}
+
+message Productos {
+  repeated Producto productos = 1;
+}
+
+service ProductoService {
+  rpc CrearProducto(Producto) returns (Producto);
+  rpc ObtenerProducto(ProductoId) returns (Producto);
+  rpc ListarProductos(google.protobuf.Empty) returns (Productos);
+  rpc ActualizarProducto(Producto) returns (Producto);
+  rpc EliminarProducto(ProductoId) returns (Producto);
+}

@@ -21,5 +21,6 @@ public class Product {
     private String id;
     private String nombre;
     private String descripcion;
-    private BigDecimal precio;
+    private double precio;
+    private int cantidad;
 }
