@@ -20,7 +20,7 @@ public class ProductServiceImpl extends ProductoServiceGrpc.ProductoServiceImplB
 
     public ProductServiceImpl(ProductRepository productRepository, ProductoMapper productoMapper) {
         this.productRepository = productRepository;
-        this.productoMapper = new ProductoMapper();
+        this.productoMapper = productoMapper;
     }
 
     @Override
@@ -48,7 +48,7 @@ public class ProductServiceImpl extends ProductoServiceGrpc.ProductoServiceImplB
 
     @Override
     public void crearProducto(ProductoProto.Producto request, StreamObserver<ProductoProto.Producto> responseObserver) {
-        Product saved = productRepository.save(productoMapper.toEntity(request));
+        Product saved = productRepository.saveAndFlush(productoMapper.toEntity(request));
         responseObserver.onNext(productoMapper.toProto(saved));
         responseObserver.onCompleted();
     }

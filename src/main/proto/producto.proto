@@ -6,6 +6,7 @@ option java_package = "poli.edu.arqweb.arqweb.proto";
 option java_outer_classname = "ProductoProto";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 message Producto {
   string id = 1;
@@ -13,6 +14,8 @@ message Producto {
   string descripcion = 3;
   double precio = 4;
   int32 cantidad = 5;
+  google.protobuf.Timestamp fecha_creacion = 6;
+  bool estado = 7;
 }
 
 message ProductoId {
