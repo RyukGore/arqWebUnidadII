@@ -16,19 +16,24 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl extends ProductoServiceGrpc.ProductoServiceImplBase {
 
     private final ProductRepository productRepository;
+    private final ProductService productService;
     private final ProductoMapper productoMapper;
 
-    public ProductServiceImpl(ProductRepository productRepository, ProductoMapper productoMapper) {
+    public ProductServiceImpl(
+            ProductRepository productRepository,
+            ProductService productService,
+            ProductoMapper productoMapper
+    ) {
         this.productRepository = productRepository;
+        this.productService = productService;
         this.productoMapper = productoMapper;
     }
 
     @Override
     public void listarProductos(Empty request, StreamObserver<ProductoProto.Productos> responseObserver) {
-        List<ProductoProto.Producto> items =
-                productRepository.findAll().stream()
-                        .map(productoMapper::toProto)
-                        .collect(Collectors.toList());
+        List<ProductoProto.Producto> items = productRepository.findAll().stream()
+                .map(productoMapper::toProto)
+                .collect(Collectors.toList());
         ProductoProto.Productos result = ProductoProto.Productos.newBuilder()
                 .addAllProductos(items)
                 .build();
@@ -37,46 +42,60 @@ public class ProductServiceImpl extends ProductoServiceGrpc.ProductoServiceImplB
     }
 
     @Override
-    public void obtenerProducto(ProductoProto.ProductoId request, StreamObserver<ProductoProto.Producto> responseObserver) {
+    public void obtenerProducto(
+            ProductoProto.ProductoId request,
+            StreamObserver<ProductoProto.Producto> responseObserver
+    ) {
         Product product = productRepository.findById(request.getId()).orElse(null);
         if (product != null) {
             responseObserver.onNext(productoMapper.toProto(product));
         } else {
             responseObserver.onNext(ProductoProto.Producto.newBuilder().build());
-        }        responseObserver.onCompleted();
+        }
+        responseObserver.onCompleted();
     }
 
     @Override
-    public void crearProducto(ProductoProto.Producto request, StreamObserver<ProductoProto.Producto> responseObserver) {
+    public void crearProducto(
+            ProductoProto.Producto request,
+            StreamObserver<ProductoProto.Producto> responseObserver
+    ) {
         Product saved = productRepository.saveAndFlush(productoMapper.toEntity(request));
         responseObserver.onNext(productoMapper.toProto(saved));
         responseObserver.onCompleted();
     }
 
     @Override
-    public void actualizarProducto(ProductoProto.Producto request, StreamObserver<ProductoProto.Producto> responseObserver) {
+    public void actualizarProducto(
+            ProductoProto.Producto request,
+            StreamObserver<ProductoProto.Producto> responseObserver
+    ) {
         Product existingProduct = productRepository.findById(request.getId()).orElse(null);
         if (existingProduct != null) {
             existingProduct.setNombre(request.getNombre());
             existingProduct.setDescripcion(request.getDescripcion());
             existingProduct.setPrecio(request.getPrecio());
             existingProduct.setCantidad(request.getCantidad());
+            existingProduct.setEstado(request.getEstado());
             Product updated = productRepository.save(existingProduct);
             responseObserver.onNext(productoMapper.toProto(updated));
         } else {
             responseObserver.onNext(ProductoProto.Producto.newBuilder().build());
-        }        responseObserver.onCompleted();
+        }
+        responseObserver.onCompleted();
     }
 
     @Override
-    public void eliminarProducto(ProductoProto.ProductoId request, StreamObserver<ProductoProto.Producto> responseObserver) {
-        Product product = productRepository.findById(request.getId()).orElse(null);
+    public void eliminarProducto(
+            ProductoProto.ProductoId request,
+            StreamObserver<ProductoProto.Producto> responseObserver
+    ) {
+        Product product = productService.deleteProductById(request.getId());
         if (product != null) {
-            productRepository.deleteById(request.getId());
             responseObserver.onNext(productoMapper.toProto(product));
         } else {
             responseObserver.onNext(ProductoProto.Producto.newBuilder().build());
-        }        responseObserver.onCompleted();
+        }
+        responseObserver.onCompleted();
     }
-
 }
