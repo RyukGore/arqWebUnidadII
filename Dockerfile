@@ -1,4 +1,4 @@
-# 1. Usa una imagen base ligera de Java (Eclipse Temurin es el estándar actual para JDK 17)
+# 1. Usa una imagen base ligera de Java 21
 FROM eclipse-temurin:21-jre-alpine
 
 # 2. Establece el directorio de trabajo dentro del contenedor

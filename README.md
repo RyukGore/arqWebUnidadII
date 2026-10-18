@@ -1,224 +1,250 @@
-# ArqWeb — API REST, GraphQL y gRPC de productos
+# ArqWeb — API de productos y clientes
 
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white)
 ![REST](https://img.shields.io/badge/API-REST-009688)
 ![GraphQL](https://img.shields.io/badge/GraphQL-Spring%20for%20GraphQL-E10098?logo=graphql&logoColor=white)
-![gRPC](https://img.shields.io/badge/gRPC-1.72.0-244C5A?logo=google&logoColor=white)
+![gRPC](https://img.shields.io/badge/gRPC-1.62.2-244C5A?logo=google&logoColor=white)
+![MySQL](https://img.shields.io/badge/Database-MySQL%208-4479A1?logo=mysql&logoColor=white)
 ![Maven](https://img.shields.io/badge/Maven-Wrapper-C71A36?logo=apachemaven&logoColor=white)
-![Database](https://img.shields.io/badge/Database-H2-09476B)
 [![Último commit](https://img.shields.io/github/last-commit/RyukGore/arqWebUnidadII?logo=github&label=%C3%BAltimo%20commit)](https://github.com/RyukGore/arqWebUnidadII/commits/main)
-[![Tamaño del repositorio](https://img.shields.io/github/repo-size/RyukGore/arqWebUnidadII?logo=github&label=tama%C3%B1o)](https://github.com/RyukGore/arqWebUnidadII)
-[![Rama principal](https://img.shields.io/github/commit-activity/m/RyukGore/arqWebUnidadII?logo=github&label=actividad)](https://github.com/RyukGore/arqWebUnidadII/graphs/commit-activity)
 
-Aplicación académica desarrollada con Spring Boot para administrar un catálogo de productos. El proyecto expone la misma persistencia mediante tres interfaces: una API REST, una API GraphQL y un servicio gRPC. La información se almacena con Spring Data JPA en una base de datos H2 en memoria.
-
-## Navegación rápida
-
-| Documentación | APIs | Proyecto |
-| --- | --- | --- |
-| [Características](#características) | [REST](#api-rest) | [Instalación](#instalación-y-ejecución) |
-| [Arquitectura](#arquitectura) | [GraphQL](#api-graphql) | [Pruebas](#pruebas) |
-| [Modelo de producto](#modelo-de-producto) | [gRPC](#servicio-grpc) | [Estructura](#estructura-del-proyecto) |
-| [Tecnologías](#tecnologías) | [Consola H2](#consola-h2) | [Configuración](#configuración-actual) |
-
-> [!TIP]
-> Los bloques con el texto **“Ver ejemplo”** son desplegables. Los badges superiores se actualizan automáticamente con la actividad del repositorio.
+Aplicación académica desarrollada con Spring Boot para administrar productos y clientes. Los productos se exponen mediante REST, GraphQL y gRPC; los clientes y su asociación con productos se exponen mediante REST y GraphQL. La persistencia de ejecución usa MySQL y las pruebas automatizadas usan H2 en memoria con compatibilidad MySQL.
 
 ## Características
 
-- CRUD de productos mediante REST.
-- Consultas y mutaciones mediante GraphQL.
-- Operaciones CRUD mediante llamadas unarias gRPC.
-- Interfaz GraphiQL para explorar la API GraphQL.
-- Consola web de H2 para consultar la base de datos durante la ejecución.
-- Generación automática de clases Java desde Protocol Buffers durante la compilación.
-- Maven Wrapper incluido; no es necesario instalar Maven globalmente.
+- CRUD de productos mediante REST, GraphQL y gRPC.
+- CRUD de clientes mediante REST y GraphQL.
+- Relación muchos-a-muchos entre clientes y productos.
+- Validación de datos de cliente y control de correos duplicados.
+- Rechazo de asociaciones con productos inexistentes.
+- Creación y actualización automática del esquema mediante JPA/Hibernate.
+- GraphiQL habilitado para explorar la API GraphQL.
+- Empaquetado y ejecución mediante Docker.
+- Pruebas aisladas de MySQL mediante un perfil H2.
 
 ## Arquitectura
 
 ```mermaid
 flowchart TB
-    subgraph Clientes[Clientes]
-        direction LR
-        REST[Cliente REST]
-        GQL[Cliente GraphQL / GraphiQL]
-        GRPC[Cliente gRPC]
+    subgraph Consumers[Consumidores]
+        REST[Cliente REST<br/><<external>>]
+        GQL[Cliente GraphQL / GraphiQL<br/><<external>>]
+        GRPC[Cliente gRPC<br/><<external>>]
     end
 
-    subgraph Aplicacion[Aplicación Spring Boot]
-        direction TB
-        RC[ProductController]
-        GC[ProductGraphQLController]
-        GS[ProductServiceImpl]
-        S[ProductService]
-        M[ProductoMapper]
-        R[ProductRepository]
+    subgraph App[Aplicación ArqWeb]
+        PC[ProductController<br/><<container>><br/>Spring Web MVC]
+        CC[CustomerController<br/><<container>><br/>Spring Web MVC]
+        PGC[ProductGraphQLController<br/><<container>><br/>Spring GraphQL]
+        CGC[CustomerGraphQLController<br/><<container>><br/>Spring GraphQL]
+        GS[ProductServiceImpl<br/><<container>><br/>gRPC]
+        PS[ProductService<br/><<component>>]
+        CS[CustomerService<br/><<component>>]
+        PR[ProductRepository<br/><<component>>]
+        CR[CustomerRepository<br/><<component>>]
+        PM[ProductoMapper<br/><<component>>]
     end
 
-    REST -->|HTTP / JSON| RC
-    GQL -->|HTTP / GraphQL| GC
-    GRPC -->|HTTP/2 + Protobuf| GS
-    RC --> S
-    GC --> S
-    S --> R
-    GS <--> M
-    GS --> R
-    R -->|JPA| DB[(H2 en memoria)]
+    DB[(MySQL polidb<br/><<database>>)]
 
-    classDef client fill:#BDBBB6,stroke:#27251C,color:#27251C
-    classDef api fill:#FFD93A,stroke:#27251C,color:#27251C
+    REST -->|consume operaciones de productos| PC
+    REST -->|consume operaciones de clientes| CC
+    GQL -->|consulta y modifica productos| PGC
+    GQL -->|consulta y modifica clientes| CGC
+    GRPC -->|invoca operaciones de productos| GS
+    PC -->|delega operaciones| PS
+    PGC -->|delega operaciones| PS
+    CC -->|delega operaciones| CS
+    CGC -->|delega operaciones| CS
+    PS -->|persiste productos| PR
+    CS -->|persiste clientes| CR
+    CS -->|valida productos asociados| PR
+    GS -->|transforma mensajes| PM
+    GS -->|persiste productos| PR
+    PR -->|lee y escribe productos| DB
+    CR -->|lee y escribe clientes y asociaciones| DB
+
+    classDef person fill:#BDBBB6,stroke:#27251C,color:#27251C
+    classDef external fill:#BDBBB6,stroke:#27251C,color:#27251C
+    classDef system fill:#FEF012,stroke:#27251C,color:#27251C
+    classDef application fill:#FFD93A,stroke:#27251C,color:#27251C
     classDef component fill:#E6C32C,stroke:#27251C,color:#27251C
+    classDef infrastructure fill:#9B9993,stroke:#27251C,color:#27251C
     classDef database fill:#DCD6C8,stroke:#27251C,color:#27251C
+    classDef middleware fill:#C9C2B3,stroke:#27251C,color:#27251C
 
-    class REST,GQL,GRPC client
-    class RC,GC,GS api
-    class S,M,R component
+    class REST,GQL,GRPC external
+    class PC,CC,PGC,CGC,GS application
+    class PS,CS,PR,CR,PM component
     class DB database
 ```
 
-<details>
-<summary><strong>Ver flujo de una operación de consulta</strong></summary>
+## Modelo de datos
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Cliente
-    participant API as REST / GraphQL / gRPC
-    participant Servicio as Servicio de productos
-    participant Repo as ProductRepository
-    participant H2 as H2
+flowchart LR
+    C[clientes<br/>PK id<br/>nombre<br/>email UNIQUE<br/>telefono<br/>fecha_creacion<br/>estado]
+    CP[clientes_productos<br/>FK cliente_id<br/>FK producto_id<br/>UNIQUE cliente_id + producto_id]
+    P[productos<br/>PK id<br/>nombre<br/>descripcion<br/>precio<br/>cantidad<br/>fecha_creacion<br/>estado]
 
-    Cliente->>API: Solicita un producto
-    API->>Servicio: Busca por ID
-    Servicio->>Repo: findById(id)
-    Repo->>H2: SELECT
-    H2-->>Repo: Registro o vacío
-    Repo-->>Servicio: Resultado
-    Servicio-->>API: Producto o ausencia
-    API-->>Cliente: Respuesta según interfaz
+    C -->|se asocia mediante cliente_id| CP
+    P -->|se asocia mediante producto_id| CP
+
+    classDef person fill:#BDBBB6,stroke:#27251C,color:#27251C
+    classDef external fill:#BDBBB6,stroke:#27251C,color:#27251C
+    classDef system fill:#FEF012,stroke:#27251C,color:#27251C
+    classDef application fill:#FFD93A,stroke:#27251C,color:#27251C
+    classDef component fill:#E6C32C,stroke:#27251C,color:#27251C
+    classDef infrastructure fill:#9B9993,stroke:#27251C,color:#27251C
+    classDef database fill:#DCD6C8,stroke:#27251C,color:#27251C
+    classDef middleware fill:#C9C2B3,stroke:#27251C,color:#27251C
+
+    class C,P database
+    class CP middleware
 ```
 
-</details>
+La asociación indica que un cliente puede tener varios productos relacionados y un producto puede relacionarse con varios clientes. No representa todavía una compra: cantidades compradas, fechas, precios históricos y estados de una orden requerirían una entidad de pedido independiente.
 
-| Componente | Responsabilidad |
+### Tabla `clientes`
+
+| Campo | Tipo Java | Regla |
+| --- | --- | --- |
+| `id` | `String` | Llave primaria, máximo 50 caracteres. |
+| `nombre` | `String` | Obligatorio, máximo 150 caracteres. |
+| `email` | `String` | Obligatorio, formato válido y único. |
+| `telefono` | `String` | Opcional, máximo 30 caracteres. |
+| `fecha_creacion` | `LocalDateTime` | Asignado automáticamente al crear. |
+| `estado` | `Boolean` | Activo por defecto. |
+
+### Tabla de relación `clientes_productos`
+
+| Campo | Relación |
 | --- | --- |
-| `ProductController` | Expone los endpoints REST. |
-| `ProductGraphQLController` | Expone las consultas y mutaciones GraphQL. |
-| `ProductService` | Centraliza la lógica usada por REST y GraphQL. |
-| `ProductServiceImpl` | Implementa el servicio gRPC generado desde `producto.proto`. |
-| `ProductoMapper` | Convierte entre la entidad JPA y los mensajes Protocol Buffers. |
-| `ProductRepository` | Gestiona la persistencia mediante Spring Data JPA. |
-| `Product` | Representa la entidad almacenada en la tabla `productos`. |
+| `cliente_id` | FK hacia `clientes.id`. |
+| `producto_id` | FK hacia `productos.id`. |
+
+La pareja `cliente_id` + `producto_id` es única para impedir asociaciones duplicadas.
 
 ## Tecnologías
 
 | Tecnología | Versión | Uso |
 | --- | --- | --- |
-| Java | 21 | Lenguaje y plataforma de ejecución. |
-| Spring Boot | 4.1.0 | Configuración y ejecución de la aplicación. |
+| Java | 21 | Lenguaje y plataforma. |
+| Spring Boot | 4.1.0 | Configuración y ejecución. |
 | Spring Web MVC | Administrada por Spring Boot | API REST. |
 | Spring for GraphQL | Administrada por Spring Boot | API GraphQL y GraphiQL. |
-| Spring Data JPA | Administrada por Spring Boot | Persistencia de datos. |
-| H2 Database | Administrada por Spring Boot | Base de datos en memoria. |
-| gRPC Java | 1.72.0 | Contrato y comunicación RPC. |
-| grpc-server-spring-boot-starter | 3.1.0.RELEASE | Integración del servidor gRPC con Spring Boot. |
-| Protocol Buffers | 4.30.2 | Generación de mensajes y servicios Java. |
-| Lombok | Administrada por Spring Boot | Generación de constructores y métodos de acceso. |
-| Maven Wrapper | Incluido | Compilación y ejecución reproducibles. |
+| Spring Data JPA | Administrada por Spring Boot | Persistencia y relaciones. |
+| MySQL Connector/J | Administrada por Spring Boot | Conexión de ejecución a MySQL. |
+| H2 | Solo pruebas | Base aislada en memoria con modo MySQL. |
+| gRPC Java | 1.62.2 | Servicio RPC de productos. |
+| Protocol Buffers | 3.25.3 | Generación de mensajes y servicios Java. |
+| grpc-server-spring-boot-starter | 3.1.0.RELEASE | Integración del servidor gRPC. |
+| Lombok | Administrada por Spring Boot | Código repetitivo de entidades y DTO. |
+| Maven Wrapper | Incluido | Compilación reproducible. |
 
 ## Requisitos
 
-- JDK 21 o superior.
-- Git para clonar el repositorio.
-- Opcional: `grpcurl` para probar el servicio gRPC desde la terminal.
+- JDK 21.
+- MySQL 8 con una base de datos llamada `polidb`.
+- Git.
+- Docker opcional.
+- `grpcurl` opcional para probar gRPC.
 
-Verifica la versión instalada:
+## Configuración de MySQL
 
-```bash
-java -version
-javac -version
+La configuración educativa predeterminada está versionada para que el proyecto pueda probarse sin ajustes adicionales:
+
+| Variable | Valor predeterminado |
+| --- | --- |
+| `DB_URL` | `jdbc:mysql://localhost:3306/polidb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true` |
+| `DB_USERNAME` | `poli` |
+| `DB_PASSWORD` | `pol1Gr@n.` |
+
+Se puede reemplazar cualquier valor mediante variables de entorno. En PowerShell:
+
+```powershell
+$env:DB_URL = "jdbc:mysql://localhost:3306/polidb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+$env:DB_USERNAME = "poli"
+$env:DB_PASSWORD = "pol1Gr@n."
 ```
+
+La configuración `spring.jpa.hibernate.ddl-auto=update` crea o ajusta automáticamente `productos`, `clientes` y `clientes_productos` al iniciar la aplicación.
+
+> La credencial predeterminada se conserva por el carácter educativo del repositorio. No debe reutilizarse en ambientes productivos ni con información real.
 
 ## Instalación y ejecución
 
-1. Clona el repositorio:
-
-   ```bash
-   git clone https://github.com/RyukGore/arqWebUnidadII.git
-   cd arqWebUnidadII
-   ```
-
-2. Compila el proyecto. Este paso también genera las clases Java definidas en `src/main/proto/producto.proto`:
-
-   **Linux/macOS**
-
-   ```bash
-   ./mvnw clean compile
-   ```
-
-   **Windows PowerShell**
-
-   ```powershell
-   .\mvnw.cmd clean compile
-   ```
-
-3. Inicia la aplicación:
-
-   **Linux/macOS**
-
-   ```bash
-   ./mvnw spring-boot:run
-   ```
-
-   **Windows PowerShell**
-
-   ```powershell
-   .\mvnw.cmd spring-boot:run
-   ```
-
-La API HTTP se inicia en el puerto `5400`. Como el proyecto no sobrescribe la configuración de gRPC, el servidor gRPC usa el puerto predeterminado `9090` del starter.
-
-## Modelo de producto
-
-La entidad persistida y las interfaces REST y gRPC manejan los siguientes datos:
-
-```json
-{
-  "id": "PROD-001",
-  "nombre": "Monitor 24 pulgadas",
-  "descripcion": "Monitor IPS Full HD",
-  "precio": 799900.0,
-  "cantidad": 10
-}
+```bash
+git clone https://github.com/RyukGore/arqWebUnidadII.git
+cd arqWebUnidadII
 ```
 
-| Campo | Java | REST | GraphQL | Protocol Buffers | Descripción |
-| --- | --- | --- | --- | --- | --- |
-| `id` | `String` | Cadena | `ID!` | `string` | Identificador único y llave primaria. |
-| `nombre` | `String` | Cadena | `String` | `string` | Nombre del producto. |
-| `descripcion` | `String` | Cadena | `String` | `string` | Descripción del producto. |
-| `precio` | `double` | Número | `Float` | `double` | Precio del producto. |
-| `cantidad` | `int` | Entero | No expuesto | `int32` | Unidades disponibles. |
+En Windows PowerShell:
 
-> El esquema GraphQL actual no declara `cantidad`; por eso este campo solo está disponible mediante REST y gRPC.
+```powershell
+.\mvnw.cmd clean test
+.\mvnw.cmd spring-boot:run
+```
 
-## API REST
+En Linux o macOS:
+
+```bash
+./mvnw clean test
+./mvnw spring-boot:run
+```
+
+Servicios disponibles:
+
+| Servicio | Dirección |
+| --- | --- |
+| API REST | `http://localhost:5400/api/v1` |
+| GraphQL | `http://localhost:5400/graphql` |
+| GraphiQL | `http://localhost:5400/graphiql` |
+| gRPC de productos | `localhost:9090` |
+
+## API REST de clientes
+
+Base URL: `http://localhost:5400/api/v1/customers`
+
+| Método | Ruta | Descripción | Respuestas principales |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/customers` | Lista clientes con sus productos. | `200 OK` |
+| `GET` | `/api/v1/customers/{id}` | Consulta un cliente. | `200 OK`, `404 Not Found` |
+| `POST` | `/api/v1/customers` | Crea un cliente y sus asociaciones. | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `PUT` | `/api/v1/customers` | Actualiza datos y reemplaza asociaciones. | `200 OK`, `400 Bad Request`, `404 Not Found`, `409 Conflict` |
+| `DELETE` | `/api/v1/customers/{id}` | Elimina el cliente y sus asociaciones. | `200 OK`, `404 Not Found` |
+
+Antes de asociar un producto, este debe existir en `productos`.
+
+```bash
+curl --request POST 'http://localhost:5400/api/v1/customers' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "id": "CLI-001",
+    "nombre": "Ana Pérez",
+    "email": "ana@example.com",
+    "telefono": "3001234567",
+    "estado": true,
+    "productoIds": ["PROD-001", "PROD-002"]
+  }'
+```
+
+Para actualizar, envía el mismo contrato a `PUT /api/v1/customers`. La lista `productoIds` sustituye las asociaciones actuales; una lista vacía deja al cliente sin productos relacionados.
+
+## API REST de productos
 
 Base URL: `http://localhost:5400/api/v1/products`
 
-| Método | Ruta | Descripción | Respuesta |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/products` | Lista todos los productos. | `200 OK` |
-| `GET` | `/api/v1/products/{id}` | Busca un producto por ID. | `200 OK` o `404 Not Found` |
-| `POST` | `/api/v1/products` | Crea o guarda un producto. | `200 OK` |
-| `PUT` | `/api/v1/products` | Actualiza el producto indicado en el cuerpo. | `200 OK` o `404 Not Found` |
-| `DELETE` | `/api/v1/products/{id}` | Elimina un producto y devuelve el registro eliminado. | `200 OK` o `404 Not Found` |
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/v1/products` | Lista productos. |
+| `GET` | `/api/v1/products/{id}` | Consulta un producto. |
+| `POST` | `/api/v1/products` | Crea o guarda un producto. |
+| `PUT` | `/api/v1/products` | Actualiza nombre, descripción, precio, cantidad y estado. |
+| `DELETE` | `/api/v1/products/{id}` | Elimina y devuelve el producto. |
 
-### Ejemplos REST
-
-<details>
-<summary><strong>Ver ejemplo: crear un producto</strong></summary>
+Ejemplo:
 
 ```bash
 curl --request POST 'http://localhost:5400/api/v1/products' \
@@ -228,155 +254,69 @@ curl --request POST 'http://localhost:5400/api/v1/products' \
     "nombre": "Monitor 24 pulgadas",
     "descripcion": "Monitor IPS Full HD",
     "precio": 799900.0,
-    "cantidad": 10
+    "cantidad": 10,
+    "estado": true
   }'
 ```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: actualizar un producto</strong></summary>
-
-```bash
-curl --request PUT 'http://localhost:5400/api/v1/products' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "id": "PROD-001",
-    "nombre": "Monitor 24 pulgadas actualizado",
-    "descripcion": "Monitor IPS Full HD con configuración actualizada",
-    "precio": 849900.0,
-    "cantidad": 8
-  }'
-```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: consultar y eliminar productos</strong></summary>
-
-```bash
-curl 'http://localhost:5400/api/v1/products'
-curl 'http://localhost:5400/api/v1/products/PROD-001'
-curl --request DELETE 'http://localhost:5400/api/v1/products/PROD-001'
-```
-
-</details>
 
 ## API GraphQL
 
-| Recurso | URL |
+Consulta de clientes y productos relacionados:
+
+```graphql
+query ListarClientes {
+  customers {
+    id
+    nombre
+    email
+    telefono
+    estado
+    productos {
+      id
+      nombre
+      precio
+      cantidad
+      estado
+    }
+  }
+}
+```
+
+Creación de cliente:
+
+```graphql
+mutation CrearCliente {
+  createCustomer(input: {
+    id: "CLI-001"
+    nombre: "Ana Pérez"
+    email: "ana@example.com"
+    telefono: "3001234567"
+    estado: true
+    productoIds: ["PROD-001"]
+  }) {
+    id
+    nombre
+    productos {
+      id
+      nombre
+    }
+  }
+}
+```
+
+El esquema completo está en `src/main/resources/graphql/schema.graphqls`.
+
+## Servicio gRPC de productos
+
+El contrato continúa en `src/main/proto/producto.proto`. El alcance gRPC permanece limitado a productos.
+
+| RPC | Descripción |
 | --- | --- |
-| Endpoint GraphQL | `http://localhost:5400/graphql` |
-| Interfaz GraphiQL | `http://localhost:5400/graphiql` |
-| Esquema | `src/main/resources/graphql/schema.graphqls` |
-
-### Ejemplos GraphQL
-
-<details>
-<summary><strong>Ver ejemplo: consultar productos</strong></summary>
-
-```graphql
-query ListarProductos {
-  products {
-    id
-    nombre
-    descripcion
-    precio
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: consultar un producto por ID</strong></summary>
-
-```graphql
-query ObtenerProducto {
-  productById(id: "PROD-001") {
-    id
-    nombre
-    descripcion
-    precio
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: crear un producto</strong></summary>
-
-```graphql
-mutation CrearProducto {
-  createProduct(input: {
-    id: "PROD-001"
-    nombre: "Monitor 24 pulgadas"
-    descripcion: "Monitor IPS Full HD"
-    precio: 799900.0
-  }) {
-    id
-    nombre
-    precio
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: actualizar un producto</strong></summary>
-
-```graphql
-mutation ActualizarProducto {
-  updateProduct(input: {
-    id: "PROD-001"
-    nombre: "Monitor 24 pulgadas actualizado"
-    descripcion: "Monitor IPS Full HD con configuración actualizada"
-    precio: 849900.0
-  }) {
-    id
-    nombre
-    descripcion
-    precio
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Ver ejemplo: eliminar un producto</strong></summary>
-
-```graphql
-mutation EliminarProducto {
-  deleteProduct(id: "PROD-001") {
-    id
-    nombre
-  }
-}
-```
-
-</details>
-
-## Servicio gRPC
-
-El contrato está definido en `src/main/proto/producto.proto` y declara el servicio `productos.ProductoService`.
-
-| RPC | Solicitud | Respuesta | Descripción |
-| --- | --- | --- | --- |
-| `CrearProducto` | `Producto` | `Producto` | Crea y devuelve un producto. |
-| `ObtenerProducto` | `ProductoId` | `Producto` | Busca un producto por ID. |
-| `ListarProductos` | `google.protobuf.Empty` | `Productos` | Lista todos los productos. |
-| `ActualizarProducto` | `Producto` | `Producto` | Actualiza un producto existente. |
-| `EliminarProducto` | `ProductoId` | `Producto` | Elimina y devuelve un producto. |
-
-### Ejemplos con grpcurl
-
-Los comandos usan el archivo `.proto` local.
-
-<details>
-<summary><strong>Ver ejemplo: listar productos</strong></summary>
+| `CrearProducto` | Crea un producto. |
+| `ObtenerProducto` | Consulta un producto por ID. |
+| `ListarProductos` | Lista productos. |
+| `ActualizarProducto` | Actualiza un producto. |
+| `EliminarProducto` | Elimina un producto. |
 
 ```bash
 grpcurl -plaintext \
@@ -385,96 +325,81 @@ grpcurl -plaintext \
   localhost:9090 productos.ProductoService/ListarProductos
 ```
 
-</details>
+## Docker
 
-<details>
-<summary><strong>Ver ejemplo: crear un producto</strong></summary>
+Primero genera el JAR:
 
-```bash
-grpcurl -plaintext \
-  -import-path src/main/proto \
-  -proto producto.proto \
-  -d '{"id":"PROD-002","nombre":"Teclado","descripcion":"Teclado mecánico","precio":249900,"cantidad":15}' \
-  localhost:9090 productos.ProductoService/CrearProducto
+```powershell
+.\mvnw.cmd clean package
+docker build -t arqweb .
 ```
 
-</details>
+Si MySQL se ejecuta en el equipo anfitrión, dentro del contenedor se debe usar `host.docker.internal`:
 
-> Actualmente, cuando gRPC no encuentra un producto al consultar, actualizar o eliminar, la implementación devuelve un mensaje `Producto` vacío en lugar de un estado `NOT_FOUND`.
-
-## Consola H2
-
-Con la aplicación en ejecución, abre `http://localhost:5400/h2-console` y utiliza:
-
-| Parámetro | Valor |
-| --- | --- |
-| JDBC URL | `jdbc:h2:mem:polidb` |
-| User Name | `sa` |
-| Password | Vacío |
-
-H2 está configurada en memoria; los datos se eliminan cuando la aplicación se detiene.
+```powershell
+docker run --rm `
+  -p 5400:5400 `
+  -p 9090:9090 `
+  -e "DB_URL=jdbc:mysql://host.docker.internal:3306/polidb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" `
+  -e "DB_USERNAME=poli" `
+  -e "DB_PASSWORD=pol1Gr@n." `
+  arqweb
+```
 
 ## Pruebas
-
-**Linux/macOS**
-
-```bash
-./mvnw test
-```
-
-**Windows PowerShell**
 
 ```powershell
 .\mvnw.cmd test
 ```
 
-La suite actual contiene una prueba de carga del contexto de Spring Boot.
+Las pruebas usan el perfil `test`, una base H2 temporal en modo MySQL y un puerto gRPC dinámico. Incluyen carga del contexto y pruebas unitarias de creación de clientes, asociación de productos y rechazo de IDs inexistentes.
 
-## Estructura del proyecto
+## Estructura principal
 
 ```text
 src/
 ├── main/
 │   ├── java/poli/edu/arqweb/arqweb/
 │   │   ├── controller/
+│   │   │   ├── ApiExceptionHandler.java
+│   │   │   ├── CustomerController.java
+│   │   │   ├── CustomerGraphQLController.java
 │   │   │   ├── ProductController.java
 │   │   │   └── ProductGraphQLController.java
+│   │   ├── dto/CustomerInput.java
 │   │   ├── mapper/ProductoMapper.java
-│   │   ├── model/Product.java
-│   │   ├── repository/ProductRepository.java
-│   │   ├── service/
-│   │   │   ├── ProductService.java
-│   │   │   └── ProductServiceImpl.java
-│   │   └── ArqWebApplication.java
+│   │   ├── model/
+│   │   │   ├── Customer.java
+│   │   │   └── Product.java
+│   │   ├── repository/
+│   │   │   ├── CustomerRepository.java
+│   │   │   └── ProductRepository.java
+│   │   └── service/
+│   │       ├── CustomerService.java
+│   │       ├── ProductService.java
+│   │       └── ProductServiceImpl.java
 │   ├── proto/producto.proto
 │   └── resources/
 │       ├── graphql/schema.graphqls
 │       └── application.yaml
 └── test/
-    └── java/poli/edu/arqweb/arqweb/ArqWebApplicationTests.java
+    ├── java/poli/edu/arqweb/arqweb/
+    └── resources/application-test.yaml
 ```
 
-## Configuración actual
+## Ajustes adicionales realizados
 
-| Configuración | Valor |
-| --- | --- |
-| Aplicación | `ArqWeb` |
-| Puerto HTTP | `5400` |
-| Puerto gRPC | `9090` predeterminado |
-| Base de datos | `jdbc:h2:mem:polidb` |
-| Consola H2 | `/h2-console` |
-| Endpoint GraphQL | `/graphql` |
-| Interfaz GraphiQL | `/graphiql` |
+- Se alineó el README con MySQL y Docker; la documentación anterior todavía describía H2 como base de ejecución.
+- Se expusieron `cantidad` y `estado` en GraphQL.
+- Se corrigió la actualización de productos para persistir `cantidad` y `estado` también por REST/GraphQL y gRPC.
+- Se corrigió el mapeo de `fecha_creacion` entre JPA y Protocol Buffers.
+- Se añadió `.DS_Store` y `.env` a `.gitignore`.
+- Se corrigió el arranque de `mvnw.cmd` en Windows cuando el repositorio local de Maven es un directorio normal.
+- Se conservó la credencial educativa en la configuración y se habilitó su reemplazo por variables de entorno.
 
-## Consideraciones del proyecto
+## Autores
 
-- REST y GraphQL comparten `ProductService`; gRPC accede directamente a `ProductRepository` mediante `ProductServiceImpl`.
-- `POST /api/v1/products` utiliza `save`, por lo que un ID existente puede sobrescribir el registro en lugar de producir un conflicto.
-- No hay validaciones de entrada ni manejo global de excepciones configurados actualmente.
-- La persistencia es volátil porque H2 se ejecuta en memoria.
+- Juan Sebastian Wilches
+- Alirio Rodriguez
 
-## Autor
-
-Juan Sebastian Wilches
-Alirio Rodriguez
-Desarrollado como parte de la Unidad 3 de Arquitectura de Aplicaciones Web.
+Proyecto académico de la Unidad II de Arquitectura de Aplicaciones Web.

@@ -12,14 +12,13 @@ import java.time.ZoneOffset;
 public class ProductoMapper {
 
     public Product toEntity(ProductoProto.Producto p) {
-
         LocalDateTime fechaCreacion = null;
 
-        if (!p.getFechaCreacion().equals(Timestamp.getDefaultInstance())) {
+        if (p.hasFechaCreacion()) {
             fechaCreacion = LocalDateTime.ofEpochSecond(
                     p.getFechaCreacion().getSeconds(),
                     p.getFechaCreacion().getNanos(),
-                    ZoneOffset.UTC );
+                    ZoneOffset.UTC);
         }
 
         return new Product(
@@ -34,15 +33,25 @@ public class ProductoMapper {
     }
 
     public ProductoProto.Producto toProto(Product p) {
-        return ProductoProto.Producto.newBuilder()
+        ProductoProto.Producto.Builder builder = ProductoProto.Producto.newBuilder()
                 .setId(p.getId())
-                .setNombre(p.getNombre())
-                .setDescripcion(p.getDescripcion())
+                .setNombre(valueOrEmpty(p.getNombre()))
+                .setDescripcion(valueOrEmpty(p.getDescripcion()))
                 .setPrecio(p.getPrecio())
                 .setCantidad(p.getCantidad())
-                .setFechaCreacion(Timestamp.newBuilder())
-                .setEstado(p.getEstado())
-                .build();
+                .setEstado(Boolean.TRUE.equals(p.getEstado()));
+
+        if (p.getFecha_creacion() != null) {
+            builder.setFechaCreacion(Timestamp.newBuilder()
+                    .setSeconds(p.getFecha_creacion().toEpochSecond(ZoneOffset.UTC))
+                    .setNanos(p.getFecha_creacion().getNano())
+                    .build());
+        }
+
+        return builder.build();
     }
 
+    private String valueOrEmpty(String value) {
+        return value == null ? "" : value;
+    }
 }

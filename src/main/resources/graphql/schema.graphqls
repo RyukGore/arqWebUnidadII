@@ -3,6 +3,8 @@ type Product {
   nombre: String
   descripcion: String
   precio: Float
+  cantidad: Int
+  estado: Boolean
 }
 
 input ProductInput {
@@ -10,15 +12,40 @@ input ProductInput {
   nombre: String
   descripcion: String
   precio: Float
+  cantidad: Int
+  estado: Boolean
+}
+
+type Customer {
+  id: ID!
+  nombre: String!
+  email: String!
+  telefono: String
+  estado: Boolean!
+  productos: [Product!]!
+}
+
+input CustomerInput {
+  id: ID!
+  nombre: String!
+  email: String!
+  telefono: String
+  estado: Boolean
+  productoIds: [ID!]!
 }
 
 type Query {
   products: [Product!]!
   productById(id: ID!): Product
+  customers: [Customer!]!
+  customerById(id: ID!): Customer
 }
 
 type Mutation {
   createProduct(input: ProductInput!): Product!
   updateProduct(input: ProductInput!): Product
   deleteProduct(id: ID!): Product
+  createCustomer(input: CustomerInput!): Customer!
+  updateCustomer(input: CustomerInput!): Customer
+  deleteCustomer(id: ID!): Customer
 }
